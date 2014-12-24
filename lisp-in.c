@@ -8,7 +8,6 @@
 struct node{
 	char *word;		// to store the syntax word
 	struct node *next;	// to store the address of next node
-	struct node *block;	// to store address of sub-block
 };
 
 void checkProgram(char *p);
@@ -29,6 +28,22 @@ main()
 	print(head);
 	printf("\n\n");
 }
+
+eval(struct node *n, struct node *env)
+{
+	if(isSymbol(n->word))
+		return search(env,n->word);
+	else if(!isList(n,"List"))
+		return n->word;
+		
+}
+
+int isSymbol(char *w)
+{
+	while(isalnum(*w))
+		++w;
+	return !*w;
+}	
 
 void checkProgram(char *p)
 {
