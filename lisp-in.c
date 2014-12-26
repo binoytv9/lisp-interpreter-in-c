@@ -7,9 +7,12 @@
 
 struct node{
 	int i;			// to store integer value
-	double f;		// to store floating value
 	char *s;		// to store symbol
+	double f;		// to store floating value
+	struct node *head;	// to store the address of first element of a list
+
 	char t;			// to specify whether the node has an integer or a float or a symbol
+
 	struct node *next;	// to store the address of next node
 };
 
@@ -19,24 +22,41 @@ struct number{
 	double fnum;
 };
 
+struct list{
+	char *w;
+	struct list *lnext;
+};
+
 int power(int a, int b);
 void checkProgram(char *p);
 struct node *newNode(char *w);
 void print(struct node *current);
-struct node *createList(char *p);
+void printList(struct list *current);
 struct number *isNumber(char *w);
-struct node *appendNode(struct node *h, char *w);
+struct list *lnewNode(char *w);
+struct list *appendList(struct list *h, char *w);
+struct list *tokenize(char *p);
+struct node *read_from_list(struct list **tokens);
+char *pop(struct list **href);
+void appendNode(struct node **h, struct node *w);
 
 main()
 {
-	struct node *head = NULL;
+	struct list *lhead = NULL;
+	struct node *nhead = NULL;
 	char program[MAX] = "(begin (define r 10) (* pi (* r r)))";
 
 	checkProgram(program);	// checking syntax of the program
 
-	head = createList(program);
+	lhead = tokenize(program);
+
 	printf("\n\n");
-	print(head);
+	printList(lhead);
+	printf("\n\n");
+
+	nhead = read_from_list(&lhead);
+	printf("\n\n");
+	print(nhead);
 	printf("\n\n");
 }
 
@@ -64,10 +84,10 @@ void checkProgram(char *p)
 
 }
 
-struct node *createList(char *p)
+struct list *tokenize(char *p)
 {
 	char word[100],*w;
-	struct node *head = NULL;
+	struct list *head = NULL;
 
 	while(*p){
 		w = word;
@@ -76,30 +96,103 @@ struct node *createList(char *p)
 		else if(!isalnum(*p)){
 			*w++ = *p++;
 			*w = '\0';
-			head = appendNode(head,word);
+			head = appendList(head,word);
 		}
 		else{
 			while(isalnum(*p))
 				*w++ = *p++;
 			*w = '\0';
-			head = appendNode(head,word);
+			head = appendList(head,word);
 		}
 	}
 	return head;
 }
 
-struct node *appendNode(struct node *h, char *w)
+struct list *appendList(struct list *h, char *w)
 {
-	struct node *current = h;
+	
+	struct list *current = h;
 
 	if(h == NULL)
-		return newNode(w);
+		return lnewNode(w);
+
+	while(current->lnext != NULL)
+		current = current->lnext;
+	current->lnext = lnewNode(w);
+
+	return h;
+}
+
+struct list *lnewNode(char *w)
+{
+	struct list *new = (struct list *)malloc(sizeof(struct list));
+
+	new->w = strdup(w);
+	new->lnext = NULL;
+
+	return new;
+}
+
+struct node *read_from_list(struct list **tokens)
+{
+	char *token;
+	struct node *L = NULL;
+
+	if(*tokens == NULL){
+		printf("\n\nunexpected EOF while reading\n\n");
+		exit(0);
+	}
+
+	token = pop(tokens);	printf("\n[%s]\n",token);printList(*tokens);
+	if(strcmp(token,"(") == 0){
+		L = newNode(token);
+
+		while(strcmp((*tokens)->w,")") != 0)
+			appendNode(&(L->head),read_from_list(tokens));
+
+		pop(tokens); // pop off ')'
+		return L;
+	}
+	else if(strcmp(token,")") == 0){
+		printf("\n\nunexpected )\n\n");
+		exit(0);
+	}
+	else
+		return newNode(token);
+	
+		
+}
+
+char *pop(struct list **href)
+{
+	char *w = (*href)->w;
+	struct list *tmp = *href;
+	*href = (*href)->lnext;
+	free(tmp);
+
+	return w;
+}
+
+
+void appendNode(struct node **h, struct node *w)
+{
+	struct node *current = *h;
+
+	if(current == NULL){
+		if(w->t == 'l')
+			*h = w;
+		else
+			*h = newNode(w->s);
+		return;
+	}
 
 	while(current->next != NULL)
 		current = current->next;
-	current->next = newNode(w);
+	if(w->t == 'l')
+		current->next = w;
+	else
+		current->next = newNode(w->s);
 
-	return h;
 }
 
 struct node *newNode(char *w)
@@ -117,6 +210,10 @@ struct node *newNode(char *w)
 			h->t = 'f';
 		}
 	}
+	else if(strcmp(w,"(") == 0){
+		h->t = 'l';
+		h->head = NULL;
+	}
 	else{
 		h->s = strdup(w);
 		h->t = 's';
@@ -133,6 +230,7 @@ struct number *isNumber(char *w)
 	int fra = 0;
 	struct number *new = NULL;
 
+	printf("\n]%s[\n",w);
 	while(isdigit(*w)){
 		sum = sum * 10 + (*w - '0');
 		++w;
@@ -157,7 +255,7 @@ struct number *isNumber(char *w)
 		}
 	}
 
-	return new;
+	return new; // neither an integer nor a float
 		
 }
 
@@ -173,20 +271,35 @@ int power(int a, int b)
 	return pow;
 }
 
-void print(struct node *current)
+void printList(struct list *current)
 {
 	while(current != NULL){
-		switch(current->t){
-			case 'i':
-				printf(" %d",current->i);
-				break;
-			case 'f':
-				printf(" %f",current->f);
-				break;
-			case 's':
-				printf(" %s",current->s);
-				break;
-		}
-		current = current->next;
+		printf(" %s",current->w);
+		current = current->lnext;
 	}
+}
+
+
+void print(struct node *current)
+{
+	if(current == NULL)
+		return;
+	switch(current->t){
+		case 'i':
+			printf(" %d",current->i);
+			break;
+		case 'f':
+			printf(" %f",current->f);
+			break;
+		case 's':
+			printf(" %s",current->s);
+			break;
+		case 'l':
+			printf(" ( ");
+			print(current->head);
+			printf(" ) ");
+			break;
+	}
+
+	print(current->next);
 }
