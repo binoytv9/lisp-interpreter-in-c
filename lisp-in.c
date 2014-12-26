@@ -6,14 +6,25 @@
 #define MAX 1000
 
 struct node{
-	char *word;		// to store the syntax word
+	int i;			// to store integer value
+	double f;		// to store floating value
+	char *s;		// to store symbol
+	char t;			// to specify whether the node has an integer or a float or a symbol
 	struct node *next;	// to store the address of next node
 };
 
+struct number{
+	int flag;
+	int inum;
+	double fnum;
+};
+
+int power(int a, int b);
 void checkProgram(char *p);
 struct node *newNode(char *w);
 void print(struct node *current);
 struct node *createList(char *p);
+struct number *isNumber(char *w);
 struct node *appendNode(struct node *h, char *w);
 
 main()
@@ -28,22 +39,6 @@ main()
 	print(head);
 	printf("\n\n");
 }
-
-eval(struct node *n, struct node *env)
-{
-	if(isSymbol(n->word))
-		return search(env,n->word);
-	else if(!isList(n,"List"))
-		return n->word;
-		
-}
-
-int isSymbol(char *w)
-{
-	while(isalnum(*w))
-		++w;
-	return !*w;
-}	
 
 void checkProgram(char *p)
 {
@@ -109,19 +104,89 @@ struct node *appendNode(struct node *h, char *w)
 
 struct node *newNode(char *w)
 {
-	struct node *h = NULL;
+	struct node *h = (struct node*)malloc(sizeof(struct node));
+	struct number *num = NULL;
 
-	h = (struct node*)malloc(sizeof(struct node));
-	h->word = strdup(w);
+	if(num = isNumber(w)){
+		if(num->flag == 1){
+			h->i = num->inum;
+			h->t = 'i';
+		}
+		else{
+			h->f = num->fnum;
+			h->t = 'f';
+		}
+	}
+	else{
+		h->s = strdup(w);
+		h->t = 's';
+	}
 	h->next = NULL;
 
 	return h;
 }
 
+struct number *isNumber(char *w)
+{
+	int i = 0;
+	int sum = 0;
+	int fra = 0;
+	struct number *new = NULL;
+
+	while(isdigit(*w)){
+		sum = sum * 10 + (*w - '0');
+		++w;
+	}
+	if(*w == '\0'){	// integer
+		new = (struct number *)malloc(sizeof(struct number));
+		new->inum = sum;
+		new->flag = 1;
+		return new;
+	}
+	else if(*w == '.'){
+		while(isdigit(*w)){
+			fra = fra * 10.0 + (*w - '0');
+			++w;
+			++i;
+		}
+		if(*w == '\0'){	// float
+			new = (struct number *)malloc(sizeof(struct number));
+			new->fnum = (double)sum + fra/power(10,i);
+			new->flag = 2;
+			return new;
+		}
+	}
+
+	return new;
+		
+}
+
+int power(int a, int b)
+{
+	int pow = 1;
+
+	if(!b)
+		return 1;
+	while(b--)
+		pow *= a;
+
+	return pow;
+}
+
 void print(struct node *current)
 {
 	while(current != NULL){
-		printf(" %s",current->word);
+		switch(current->t){
+			case 'i':
+				printf(" %d",current->i);
+				break;
+			case 'f':
+				printf(" %f",current->f);
+				break;
+			case 's':
+				printf(" %s",current->s);
+				break;
+		}
 		current = current->next;
 	}
 }
