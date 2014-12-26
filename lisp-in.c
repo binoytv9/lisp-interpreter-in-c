@@ -143,7 +143,7 @@ struct node *read_from_list(struct list **tokens)
 		exit(0);
 	}
 
-	token = pop(tokens);	printf("\n[%s]\n",token);printList(*tokens);
+	token = pop(tokens);
 	if(strcmp(token,"(") == 0){
 		L = newNode(token);
 
@@ -179,20 +179,13 @@ void appendNode(struct node **h, struct node *w)
 	struct node *current = *h;
 
 	if(current == NULL){
-		if(w->t == 'l')
 			*h = w;
-		else
-			*h = newNode(w->s);
 		return;
 	}
 
 	while(current->next != NULL)
 		current = current->next;
-	if(w->t == 'l')
 		current->next = w;
-	else
-		current->next = newNode(w->s);
-
 }
 
 struct node *newNode(char *w)
@@ -230,7 +223,6 @@ struct number *isNumber(char *w)
 	int fra = 0;
 	struct number *new = NULL;
 
-	printf("\n]%s[\n",w);
 	while(isdigit(*w)){
 		sum = sum * 10 + (*w - '0');
 		++w;
