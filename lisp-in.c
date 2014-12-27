@@ -11,6 +11,11 @@ struct node{
 	double f;		// to store floating value
 	struct node *head;	// to store the address of first element of a list
 
+	int (*fp1) (int);
+	double (*fp2) (double);
+	double (*fp3) (double,double);
+
+	char v;			// to store which type of function pointer
 	char t;			// to specify whether the node has an integer or a float or a symbol
 
 	struct node *next;	// to store the address of next node
@@ -29,16 +34,16 @@ struct list{
 
 int power(int a, int b);
 void checkProgram(char *p);
-struct node *newNode(char *w);
-void print(struct node *current);
-void printList(struct list *current);
-struct number *isNumber(char *w);
-struct list *lnewNode(char *w);
-struct list *appendList(struct list *h, char *w);
-struct list *tokenize(char *p);
-struct node *read_from_list(struct list **tokens);
 char *pop(struct list **href);
+struct node *newNode(char *w);
+struct list *lnewNode(char *w);
+struct list *tokenize(char *p);
+void print(struct node *current);
+struct number *isNumber(char *w);
+void printList(struct list *current);
+struct list *appendList(struct list *h, char *w);
 void appendNode(struct node **h, struct node *w);
+struct node *read_from_list(struct list **tokens);
 
 main()
 {
@@ -59,6 +64,82 @@ main()
 	print(nhead);
 	printf("\n\n");
 }
+
+struct node *env[HASHMAX];
+
+struct node *standard_env(void)
+{
+	env[hash("sqrt")] = dfd(sqrt);
+	env[hash("abs")] = ifi(abs);
+	env[hash("pow")] = dfdd(pow);
+	env[hash("exp")] = dfd(exp);
+	env[hash("cos")] = dfd(cos);
+	env[hash("sin")] = dfd(sin);
+	env[hash("log")] = dfd(log);
+}
+
+struct node *ifi(int (*fp)(int))
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'F';
+	new->v = '1';
+	new->fp1 = fp;
+	new->next = NULL;
+}
+
+struct node *dfd(double (*fp)(double))
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'F';
+	new->v = '2';
+	new->fp2 = fp;
+	new->next = NULL;
+}
+
+struct node *dfdd(double (*fp)(double,double))
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'F';
+	new->v = '3';
+	new->fp3 = fp;
+	new->next = NULL;
+}
+
+
+int hash(char *w)
+{
+	int i = 0;
+	int h = 0;
+
+	while(*w){
+		h = h + (*w)*power(10,i);
+		w++;
+		i++;
+	}
+	return h%HASHMAX;
+}
+
+struct node *eval(struct node *x)
+{
+	if(x->t == 's')
+		return env[x];
+	else if(x->t != 'l')
+		return x;
+	else if(strcmp(x->head->s,"quote") == 0)
+}
+
+
+
+
+
+
+
+
+
+
 
 void checkProgram(char *p)
 {
@@ -138,11 +219,6 @@ struct node *read_from_list(struct list **tokens)
 	char *token;
 	struct node *L = NULL;
 
-	if(*tokens == NULL){
-		printf("\n\nunexpected EOF while reading\n\n");
-		exit(0);
-	}
-
 	token = pop(tokens);
 	if(strcmp(token,"(") == 0){
 		L = newNode(token);
@@ -152,10 +228,6 @@ struct node *read_from_list(struct list **tokens)
 
 		pop(tokens); // pop off ')'
 		return L;
-	}
-	else if(strcmp(token,")") == 0){
-		printf("\n\nunexpected )\n\n");
-		exit(0);
 	}
 	else
 		return newNode(token);
@@ -287,9 +359,9 @@ void print(struct node *current)
 			printf(" %s",current->s);
 			break;
 		case 'l':
-			printf(" ( ");
+			printf(" (");
 			print(current->head);
-			printf(" ) ");
+			printf(" )");
 			break;
 	}
 
