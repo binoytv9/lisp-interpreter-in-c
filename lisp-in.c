@@ -6,18 +6,17 @@
 #define MAX 1000
 
 struct node{
-	int i;			// to store integer value
-	char *s;		// to store symbol
-	double f;		// to store floating value
-	struct node *head;	// to store the address of first element of a list
+	int i;			/* to store integer value				t = 'i'		*/
+	char *s;		/* to store symbol					t = 's'		*/
+	double f;		/* to store floating value				t = 'f'		*/
+	struct node *head;	/* to store the address of first element of a list	t = 'l'		*/
 
-	int (*fp1) (int);
-	double (*fp2) (double);
-	double (*fp3) (double,double);
+	char v;			/* to store which type of function pointer		t = 'F'		*/
+	int (*fp1) (int);		// v = '1'
+	double (*fp2) (double);		// v = '2'
+	double (*fp3) (double,double);	// v = '3'
 
-	char v;			// to store which type of function pointer
-	char t;			// to specify whether the node has an integer or a float or a symbol
-
+	char t;			// to specify whether the node has an integer or a float or a symbol or a function pointer
 	struct node *next;	// to store the address of next node
 };
 
@@ -78,6 +77,10 @@ struct node *standard_env(void)
 	env[hash("log")] = dfd(log);
 }
 
+struct node * add(struct node *head)
+{
+	
+
 struct node *ifi(int (*fp)(int))
 {
 	struct node *new = (struct node *)malloc(sizeof(struct node));
@@ -124,22 +127,113 @@ int hash(char *w)
 
 struct node *eval(struct node *x)
 {
-	if(x->t == 's')
-		return env[x];
-	else if(x->t != 'l')
-		return x;
-	else if(strcmp(x->head->s,"quote") == 0)
+	if(x->t == 's'){				// variable reference
+		var = x->s;
+		return env[hash(var)];
+	}
+
+	else if(x->t != 'l')				// constant literal
+		return copyNode(x);
+
+	else if(strcmp(x->head->s,"quote") == 0){	// (quote exp)
+		return x->head->next;
+
+	else if(strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
+		test = copyNode(x->head->next);
+		conseq = copyNode(x->head->next->next);
+		alt = copyNode(x->head->next->next->next);
+
+		cond = eval(test,env);
+
+		switch(cond->t){
+			case 'i':
+				if(cond->i)
+					return eval(conseq,env);
+				break;
+			case 'f':
+				if(cond->f)
+					return eval(conseq,env);
+				break;
+			case 's':
+				if(cond->s)
+					return eval(conseq,env);
+				break;
+			default:
+				printf("\n\ncheck here\n\n");
+				break;
+		}
+		return eval(alt, env);
+	}
+
+	else if(strcmp(x->head->s,"define") == 0){	// (define var exp)
+		var = x->head->next->s;
+		exp = copyNode(x->head->next->next);
+		env[hash(var)] = eval(exp, env);
+		return;
+	}
+
+	else{						// (proc arg...)
+		proc = eval(copyNode(x->head), env);
+		current = x->head->next;
+
+		while(current != NULL){
+			appendNode(&head,copyNode(current));
+			current = current->next;
+		}
+
+		switch(proc->v){
+			case '1':
+				return (proc->fp1)(head);
+				break;
+			case '2':
+				return (proc->fp2)(head);
+				break;
+			case '3':
+				return (proc->fp3)(head);
+				break;
+		}
+	}
+		
+
 }
 
+struct node *copyNode(struct node *old)
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
 
+	new->t = old->t;
+	switch(new->t){
+		case 'i':
+			new->i = old->i;
+			break;
+		case 's':
+			new->s = old->s;
+			break;
+		case 'f':
+			new->f = old->f;
+			break;
+		case 'l':
+			new->head = old->head;
+			break;
+		case 'F':
+			new->v = old->v;
+			switch(new->v){
+				case '1':
+					new->fp1 = old->fp1;
+					break;
+				case '2':
+					new->fp2 = old->fp2;
+					break;
+				case '3':
+					new->fp3 = old->fp3;
+					break;
+			}
+			break;
+	}
+	new->next = NULL;
 
-
-
-
-
-
-
-
+	return new;
+}
 
 void checkProgram(char *p)
 {
