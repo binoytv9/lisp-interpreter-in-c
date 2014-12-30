@@ -37,82 +37,116 @@ struct list *tokenize(char *p);
 void print(struct node *current);
 struct number *isNumber(char *w);
 int length(struct node *current);
+struct node *parse(char *program);
 void printList(struct list *current);
+void standard_env(struct node *env[]);
 struct node *copyNode(struct node *old);
-struct node *standard_env(struct node *env[]);
 struct list *appendList(struct list *h, char *w);
 void appendNode(struct node **h, struct node *w);
-struct node *eval(struct node *x, struct node *env[]);
-struct node *updateEnv(struct node * (*fptr) (struct node *));
-
-struct node *div_(struct node *head);
-struct node *mul(struct node *head);
-struct node *sub(struct node *head);
-struct node *add(struct node *head);
-struct node *logBe(struct node *head);
-struct node *sine(struct node *head);
-struct node *cosine(struct node *head);
-struct node *expt(struct node *head);
-struct node *power(struct node *head);
-struct node *absval(struct node *head);
-struct node *sqroot(struct node *head);
 struct node *read_from_list(struct list **tokens);
+struct node *eval(struct node *x, struct node *env[]);
+struct node *updateEnv(struct node * (*fptr) (struct node *), char *s);
+
 struct node *min(struct node *head);
 struct node *max(struct node *head);
 struct node *len(struct node *head);
 struct node *cdr(struct node *head);
 struct node *car(struct node *head);
-struct node *cons(struct node *x, struct node *y);
+struct node *mul(struct node *head);
+struct node *sub(struct node *head);
+struct node *add(struct node *head);
+struct node *sine(struct node *head);
+struct node *expt(struct node *head);
+struct node *div_(struct node *head);
+struct node *logBe(struct node *head);
+struct node *power(struct node *head);
+struct node *cosine(struct node *head);
+struct node *absval(struct node *head);
+struct node *sqroot(struct node *head);
 struct node *begin(struct node *current);
+struct node *cons(struct node *x, struct node *y);
+
+int DEBUG = 0;
 
 main()
 {
 	struct node *env[HASHMAX];
-	struct list *lhead = NULL;
-	struct node *nhead = NULL;
+	struct node *head = NULL;
+//	char program[MAX] = "(sqrt 9)";	
 	char program[MAX] = "(begin (define r 10) (* pi (* r r)))";
 
-	checkProgram(program);	// checking syntax of the program
+	head = parse(program);
 
+	if(DEBUG){
+		printf("\nInside main: output of parse fn");
+		printf("\n");
+		print(head);
+		printf("\n\n");
+	}
+
+	standard_env(env);
+
+	print(eval(head,env));
+	printf("\n\n");
+}
+
+struct node *parse(char *program)
+{
+	struct list *lhead = NULL;
+
+	checkProgram(program);	// checking syntax of the program
 	lhead = tokenize(program);
 
-	printf("\n\n");
-	printList(lhead);
-	printf("\n\n");
+	if(DEBUG){
+		printf("\nInside parse: output of tokenize fn");
+		printf("\n");
+		printList(lhead);
+		printf("\n\n");
+	}
 
-	nhead = read_from_list(&lhead);
-	printf("\n\n");
-	print(nhead);
-	printf("\n\n");
+	return read_from_list(&lhead);
 }
-
-struct node *standard_env(struct node *env[])
+	
+void standard_env(struct node *env[])
 {
-	env[hash("+")] = updateEnv(add);
-	env[hash("-")] = updateEnv(sub);
-	env[hash("*")] = updateEnv(mul);
-	env[hash("/")] = updateEnv(div_);
+	env[hash("+")] = updateEnv(add,"+");
+	env[hash("-")] = updateEnv(sub,"-");
+	env[hash("*")] = updateEnv(mul,"*");
+	env[hash("/")] = updateEnv(div_,"/");
 
-/*	env[hash(">")] = updateEnv(gt);
-	env[hash("<")] = updateEnv(lt);
-	env[hash(">=")] = updateEnv(ge);
-	env[hash("<=")] = updateEnv(le);	*/
+/*
+	env[hash(">")] = updateEnv(gt,">");
+	env[hash("<")] = updateEnv(lt,"<");
+	env[hash(">=")] = updateEnv(ge,">=");
+	env[hash("<=")] = updateEnv(le,"<=");
+*/
 
-	env[hash("sqrt")] = updateEnv(sqroot);
-	env[hash("abs")] = updateEnv(absval);
-	env[hash("pow")] = updateEnv(power);
-	env[hash("exp")] = updateEnv(expt);
-	env[hash("cos")] = updateEnv(cosine);
-	env[hash("sin")] = updateEnv(sine);
-	env[hash("log")] = updateEnv(logBe);
+	env[hash("sqrt")] = updateEnv(sqroot,"sqrt");
+	env[hash("abs")] = updateEnv(absval,"abs");
+	env[hash("pow")] = updateEnv(power,"pow");
+	env[hash("exp")] = updateEnv(expt,"exp");
+	env[hash("cos")] = updateEnv(cosine,"cos");
+	env[hash("sin")] = updateEnv(sine,"sin");
+	env[hash("log")] = updateEnv(logBe,"log");
+
+	env[hash("begin")] = updateEnv(sqroot,"begin");
+	env[hash("min")] = updateEnv(sqroot,"min");
+	env[hash("max")] = updateEnv(sqroot,"max");
+	env[hash("len")] = updateEnv(sqroot,"len");
+	env[hash("cdr")] = updateEnv(sqroot,"cdr");
+	env[hash("car")] = updateEnv(sqroot,"car");
+	env[hash("cons")] = updateEnv(sqroot,"cons");
+
+	env[hash("pi")] = newNode("3.14");
 }
 
-struct node *updateEnv(struct node * (*fptr) (struct node *))
+struct node *updateEnv(struct node * (*fptr) (struct node *), char *s)
 {
 	struct node *new = (struct node *)malloc(sizeof(struct node));
 
 	new->t = 'F';
 	new->fptr = fptr;
+	new->s = strdup(s);
 	new->next = NULL;
 
 	return new;
@@ -124,7 +158,7 @@ int hash(char *w)
 	int h = 0;
 
 	while(*w){
-		h = h + (*w)*pow(10,i);
+		h = h + (*w) * pow(10,i);
 		w++;
 		i++;
 	}
@@ -201,8 +235,7 @@ struct node *copyNode(struct node *old)
 {
 	struct node *new = (struct node *)malloc(sizeof(struct node));
 
-	new->t = old->t;
-	switch(new->t){
+	switch(new->t = old->t){
 		case 'i':
 			new->i = old->i;
 			break;
