@@ -1,9 +1,11 @@
+#include<math.h>
 #include<stdio.h>
 #include<ctype.h>
 #include<stdlib.h>
 #include<string.h>
 
 #define MAX 1000
+#define HASHMAX 1000
 
 struct node{
 	int i;			/* to store integer value				t = 'i'		*/
@@ -27,7 +29,6 @@ struct list{
 	struct list *lnext;
 };
 
-int power(int a, int b);
 void checkProgram(char *p);
 char *pop(struct list **href);
 struct node *newNode(char *w);
@@ -35,13 +36,38 @@ struct list *lnewNode(char *w);
 struct list *tokenize(char *p);
 void print(struct node *current);
 struct number *isNumber(char *w);
+int length(struct node *current);
 void printList(struct list *current);
+struct node *copyNode(struct node *old);
+struct node *standard_env(struct node *env[]);
 struct list *appendList(struct list *h, char *w);
 void appendNode(struct node **h, struct node *w);
+struct node *eval(struct node *x, struct node *env[]);
+struct node *updateEnv(struct node * (*fptr) (struct node *));
+
+struct node *div_(struct node *head);
+struct node *mul(struct node *head);
+struct node *sub(struct node *head);
+struct node *add(struct node *head);
+struct node *logBe(struct node *head);
+struct node *sine(struct node *head);
+struct node *cosine(struct node *head);
+struct node *expt(struct node *head);
+struct node *power(struct node *head);
+struct node *absval(struct node *head);
+struct node *sqroot(struct node *head);
 struct node *read_from_list(struct list **tokens);
+struct node *min(struct node *head);
+struct node *max(struct node *head);
+struct node *len(struct node *head);
+struct node *cdr(struct node *head);
+struct node *car(struct node *head);
+struct node *cons(struct node *x, struct node *y);
+struct node *begin(struct node *current);
 
 main()
 {
+	struct node *env[HASHMAX];
 	struct list *lhead = NULL;
 	struct node *nhead = NULL;
 	char program[MAX] = "(begin (define r 10) (* pi (* r r)))";
@@ -60,19 +86,17 @@ main()
 	printf("\n\n");
 }
 
-struct node *env[HASHMAX];
-
-struct node *standard_env(void)
+struct node *standard_env(struct node *env[])
 {
 	env[hash("+")] = updateEnv(add);
 	env[hash("-")] = updateEnv(sub);
 	env[hash("*")] = updateEnv(mul);
-	env[hash("/")] = updateEnv(div);
+	env[hash("/")] = updateEnv(div_);
 
-	env[hash(">")] = updateEnv(gt);
+/*	env[hash(">")] = updateEnv(gt);
 	env[hash("<")] = updateEnv(lt);
 	env[hash(">=")] = updateEnv(ge);
-	env[hash("<=")] = updateEnv(le);
+	env[hash("<=")] = updateEnv(le);	*/
 
 	env[hash("sqrt")] = updateEnv(sqroot);
 	env[hash("abs")] = updateEnv(absval);
@@ -83,433 +107,12 @@ struct node *standard_env(void)
 	env[hash("log")] = updateEnv(logBe);
 }
 
-struct node *div(struct node *head)
+struct node *updateEnv(struct node * (*fptr) (struct node *))
 {
-	double result;
-	int flagi = 0;
-	int flagf = 0;
-	int resulti = 1;
-	double resultf = 1;
-	struct node *new = NULL;
+	struct node *new = (struct node *)malloc(sizeof(struct node));
 
-	while(current != NULL){
-		l++;
-		if(current->t == 'f')
-			flagf = 1;
-		current = current->next;
-	}
-
-	if(l > 1){
-		switch(head->t){
-			case 'i':
-				if(flagf)
-					resultf = (double)head->i;
-				else
-					resulti = head->i;
-				flagi = 1;
-				break;
-			case 'f':
-				resultf = head->f;
-				flagf = 1;
-				break;
-			case 's':
-				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
-				exit(0);
-		}
-		head = head->next;
-	}
-
-
-	while(head != NULL){
-		switch(head->t){
-			case 'i':
-				if(flagf)
-					resultf /= (double)head->i;
-				else
-					resulti /= head->i;
-				flagi = 1;
-				break;
-			case 'f':
-				resultf /= head->f;
-				flagf = 1;
-				break;
-			case 's':
-				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
-				exit(0);
-		}
-		head = head->next;
-	}
-
-	new = (struct node *)malloc(sizeof(strucct node));
-	if((flagi && flagf) || flagf){
-		new->t = 'f';
-		new->f = (double)resulti * resultf;
-	}
-	else if(flagi){
-		new->t = 'i';
-		new->i = resulti;
-	}
-	else{
-		new->t = 'i';
-		new->i = 1;
-	}
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *mul(struct node *head)
-{
-	double result;
-	int flagi = 0;
-	int flagf = 0;
-	int resulti = 1;
-	double resultf = 1;
-	struct node *new = NULL;
-
-	while(head != NULL){
-		switch(head->t){
-			case 'i':
-				resulti *= head->i;
-				flagi = 1;
-				break;
-			case 'f':
-				resultf *= head->f;
-				flagf = 1;
-				break;
-			case 's':
-				printf("The object \"%s\", passed as argument to * is not the correct type.\n\n",head->s);
-				exit(0);
-		}
-		head = head->next;
-	}
-
-	new = (struct node *)malloc(sizeof(strucct node));
-	if((flagi && flagf) || flagf){
-		new->t = 'f';
-		new->f = (double)resulti * resultf;
-	}
-	else if(flagi){
-		new->t = 'i';
-		new->i = resulti;
-	}
-	else{
-		new->t = 'i';
-		new->i = 1;
-	}
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *sub(struct node *head)
-{
-	double result;
-	int flagi = 0;
-	int flagf = 0;
-	int resulti = 0;
-	double resultf = 0;
-	struct node *new = NULL;
-
-	while(head != NULL){
-		switch(head->t){
-			case 'i':
-				resulti -= head->i;
-				flagi = 1;
-				break;
-			case 'f':
-				resultf -= head->f;
-				flagf = 1;
-				break;
-			case 's':
-				printf("The object \"%s\", passed as argument to - is not the correct type.\n\n",head->s);
-				exit(0);
-		}
-		head = head->next;
-	}
-
-	new = (struct node *)malloc(sizeof(strucct node));
-	if((flagi && flagf) || flagf){
-		new->t = 'f';
-		new->f = (double)resulti + resultf;
-	}
-	else if(flagi){
-		new->t = 'i';
-		new->i = resulti;
-	}
-	else{
-		new->t = 'i';
-		new->i = 0;
-	}
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *add(struct node *head)
-{
-	double result;
-	int flagi = 0;
-	int flagf = 0;
-	int resulti = 0;
-	double resultf = 0;
-	struct node *new = NULL;
-
-	while(head != NULL){
-		switch(head->t){
-			case 'i':
-				resulti += head->i;
-				flagi = 1;
-				break;
-			case 'f':
-				resultf += head->f;
-				flagf = 1;
-				break;
-			case 's':
-				printf("The object \"%s\", passed as argument to + is not the correct type.\n\n",head->s);
-				exit(0);
-		}
-		head = head->next;
-	}
-
-	new = (struct node *)malloc(sizeof(strucct node));
-	if((flagi && flagf) || flagf){
-		new->t = 'f';
-		new->f = (double)resulti + resultf;
-	}
-	else if(flagi){
-		new->t = 'i';
-		new->i = resulti;
-	}
-	else{
-		new->t = 'i';
-		new->i = 0;
-	}
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *logBe(struct node *head)
-{
-	double result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("log has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = log(head->i);
-			break;
-		case 'f':
-			result = log(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to log() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *sine(struct node *head)
-{
-	double result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("sin has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = sin(head->i);
-			break;
-		case 'f':
-			result = sin(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to sin() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *cosine(struct node *head)
-{
-	double result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("cos has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = cos(head->i);
-			break;
-		case 'f':
-			result = cos(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to cos() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *expt(struct node *head)
-{
-	double result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("exp has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = exp(head->i);
-			break;
-		case 'f':
-			result = exp(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to exp() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *power(struct node *head)
-{
-	int l;
-	double x,y;
-	double result;
-	struct node *new = NULL;
-
-	if((l = length(head)) != 2){
-		printf("pow has been called with %d arguments; it requires exactly 2 argument.",l);
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			x = (double)head->i;
-			break;
-		case 'f':
-			x = head->f;
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to pow() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	switch(head->next->t){
-		case 'i':
-			y = (double)head->next->i;
-			break;
-		case 'f':
-			y = head->next->f;
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the second argument to pow() is not the correct type.\n\n",head->next->s);
-			exit(0);
-	}
-
-	result = pow(x,y);
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *absval(struct node *head)
-{
-	int result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("abs has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = abs(head->i);
-			break;
-		case 'f':
-			result = abs(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to abs() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'i';
-	new->i = result;
-	new->next = NULL;
-
-	return new;
-}
-
-struct node *sqroot(struct node *head)
-{
-	double result;
-	struct node *new = NULL;
-
-	if(head->next != NULL){
-		printf("sqrt has been called with %d arguments; it requires exactly 1 argument.",length(head));
-		exit(0);
-	}
-
-	switch(head->t){
-		case 'i':
-			result = sqrt(head->i);
-			break;
-		case 'f':
-			result = sqrt(head->f);
-			break;
-		case 's':
-			printf("The object \"%s\", passed as the first argument to sqrt() is not the correct type.\n\n",head->s);
-			exit(0);
-	}
-
-	new = (struct node *)malloc(sizeof(struct node));
-	new->t = 'f';
-	new->f = result;
+	new->t = 'F';
+	new->fptr = fptr;
 	new->next = NULL;
 
 	return new;
@@ -521,17 +124,17 @@ int hash(char *w)
 	int h = 0;
 
 	while(*w){
-		h = h + (*w)*power(10,i);
+		h = h + (*w)*pow(10,i);
 		w++;
 		i++;
 	}
 	return h%HASHMAX;
 }
 
-struct node *eval(struct node *x)
+struct node *eval(struct node *x, struct node *env[])
 {
 	if(x->t == 's'){				// variable reference
-		var = x->s;
+		char *var = x->s;
 		return env[hash(var)];
 	}
 
@@ -540,8 +143,10 @@ struct node *eval(struct node *x)
 
 	else if(strcmp(x->head->s,"quote") == 0){	// (quote exp)
 		return x->head->next;
-
+	}
 	else if(strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
+		struct node *test, *conseq, *alt, *cond;
+
 		test = copyNode(x->head->next);
 		conseq = copyNode(x->head->next->next);
 		alt = copyNode(x->head->next->next->next);
@@ -569,13 +174,15 @@ struct node *eval(struct node *x)
 	}
 
 	else if(strcmp(x->head->s,"define") == 0){	// (define var exp)
-		var = x->head->next->s;
-		exp = copyNode(x->head->next->next);
+		char *var = x->head->next->s;
+		struct node *exp = copyNode(x->head->next->next);
 		env[hash(var)] = eval(exp, env);
 		return;
 	}
 
 	else{						// (proc arg...)
+		struct node *proc, *current, *head = NULL;
+
 		proc = eval(copyNode(x->head), env);
 		current = x->head->next;
 
@@ -830,4 +437,604 @@ void print(struct node *current)
 	}
 
 	print(current->next);
+}
+
+int length(struct node *current)
+{
+	int l = 0;
+	while(current != NULL){
+		l++;
+		current = current->next;
+	}
+
+	return l;
+}
+
+struct node *div_(struct node *head)
+{
+	int l = 0;
+	double result;
+	int flagi = 0;
+	int flagf = 0;
+	int resulti = 1;
+	double resultf = 1;
+	struct node *new = NULL;
+	struct node *current = head;
+
+	while(current != NULL){
+		l++;
+		if(current->t == 'f')
+			flagf = 1;
+		current = current->next;
+	}
+
+	if(l > 1){
+		switch(head->t){
+			case 'i':
+				if(flagf)
+					resultf = (double)head->i;
+				else
+					resulti = head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf = head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
+
+
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				if(flagf)
+					resultf /= (double)head->i;
+				else
+					resulti /= head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf /= head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	if((flagi && flagf) || flagf){
+		new->t = 'f';
+		new->f = (double)resulti * resultf;
+	}
+	else if(flagi){
+		new->t = 'i';
+		new->i = resulti;
+	}
+	else{
+		new->t = 'i';
+		new->i = 1;
+	}
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *mul(struct node *head)
+{
+	double result;
+	int flagi = 0;
+	int flagf = 0;
+	int resulti = 1;
+	double resultf = 1;
+	struct node *new = NULL;
+
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				resulti *= head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf *= head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to * is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	if((flagi && flagf) || flagf){
+		new->t = 'f';
+		new->f = (double)resulti * resultf;
+	}
+	else if(flagi){
+		new->t = 'i';
+		new->i = resulti;
+	}
+	else{
+		new->t = 'i';
+		new->i = 1;
+	}
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *sub(struct node *head)
+{
+	double result;
+	int flagi = 0;
+	int flagf = 0;
+	int resulti = 0;
+	double resultf = 0;
+	struct node *new = NULL;
+
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				resulti -= head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf -= head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to - is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	if((flagi && flagf) || flagf){
+		new->t = 'f';
+		new->f = (double)resulti + resultf;
+	}
+	else if(flagi){
+		new->t = 'i';
+		new->i = resulti;
+	}
+	else{
+		new->t = 'i';
+		new->i = 0;
+	}
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *add(struct node *head)
+{
+	double result;
+	int flagi = 0;
+	int flagf = 0;
+	int resulti = 0;
+	double resultf = 0;
+	struct node *new = NULL;
+
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				resulti += head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf += head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to + is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	if((flagi && flagf) || flagf){
+		new->t = 'f';
+		new->f = (double)resulti + resultf;
+	}
+	else if(flagi){
+		new->t = 'i';
+		new->i = resulti;
+	}
+	else{
+		new->t = 'i';
+		new->i = 0;
+	}
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *logBe(struct node *head)
+{
+	double result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("log has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = log(head->i);
+			break;
+		case 'f':
+			result = log(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to log() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *sine(struct node *head)
+{
+	double result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("sin has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = sin(head->i);
+			break;
+		case 'f':
+			result = sin(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to sin() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *cosine(struct node *head)
+{
+	double result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("cos has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = cos(head->i);
+			break;
+		case 'f':
+			result = cos(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to cos() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *expt(struct node *head)
+{
+	double result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("exp has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = exp(head->i);
+			break;
+		case 'f':
+			result = exp(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to exp() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *power(struct node *head)
+{
+	int l;
+	double x,y;
+	double result;
+	struct node *new = NULL;
+
+	if((l = length(head)) != 2){
+		printf("pow has been called with %d arguments; it requires exactly 2 argument.",l);
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			x = (double)head->i;
+			break;
+		case 'f':
+			x = head->f;
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to pow() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	switch(head->next->t){
+		case 'i':
+			y = (double)head->next->i;
+			break;
+		case 'f':
+			y = head->next->f;
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the second argument to pow() is not the correct type.\n\n",head->next->s);
+			exit(0);
+	}
+
+	result = pow(x,y);
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *absval(struct node *head)
+{
+	int result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("abs has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = abs(head->i);
+			break;
+		case 'f':
+			result = abs(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to abs() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'i';
+	new->i = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *sqroot(struct node *head)
+{
+	double result;
+	struct node *new = NULL;
+
+	if(head->next != NULL){
+		printf("sqrt has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			result = sqrt(head->i);
+			break;
+		case 'f':
+			result = sqrt(head->f);
+			break;
+		case 's':
+			printf("The object \"%s\", passed as the first argument to sqrt() is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->t = 'f';
+	new->f = result;
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *begin(struct node *current)
+{
+	while(current->next != NULL)
+		current = current->next;
+
+	return current;
+}
+
+struct node *cons(struct node *x, struct node *y)
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'l';
+	new->head = x;
+	new->next = NULL;
+
+	if(y->t == 'l')
+		x->next = y->head;
+	else
+		x->next = y;
+
+	return new;
+}
+
+struct node *car(struct node *head)
+{
+	if(head->t != 'l'){
+		printf("\n\nThe object passed as the first argument to car, is not the correct type\n\n");
+		exit(0);
+	}
+
+	return head->head;
+}
+
+struct node *cdr(struct node *head)
+{
+	if(head->t != 'l'){
+		printf("\n\nThe object passed as the first argument to cdr, is not the correct type\n\n");
+		exit(0);
+	}
+
+	return head->head->next;
+}
+
+struct node *len(struct node *head)
+{
+	struct node *new = NULL;
+
+	if(head->t != 'l'){
+		printf("\n\nThe object passed as an argument to length, is not a list\n\n");
+		exit(0);
+	}
+
+	new = (struct node *)malloc(sizeof(struct node));
+	new->i = length(head);
+	new->t = 'i';
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *max(struct node *head)
+{
+	double maxnum;
+	struct node *maxNode = head;
+
+	if(head == NULL){
+		printf("\n\nmax has been called with 0 arguments; it requires at least 1 argument\n\n");
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			maxnum = (double)head->i;
+			break;
+		case 'f':
+			maxnum = head->f;
+			break;
+		default:
+			printf("\n\nThe object passed as an argument to max, is not a real number\n\n");
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				if(maxnum > head->i){
+					maxnum = (double)head->i;
+					maxNode = head;
+				}
+				break;
+			case 'f':
+				if(maxnum > head->f){
+					maxnum = head->f;
+					maxNode = head;
+				}
+				break;
+			default:
+				printf("\n\nThe object passed as an argument to max, is not a real number\n\n");
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	return copyNode(maxNode);
+}
+
+struct node *min(struct node *head)
+{
+	double minnum;
+	struct node *minNode = head;
+
+	if(head == NULL){
+		printf("\n\nmax has been called with 0 arguments; it requires at least 1 argument\n\n");
+		exit(0);
+	}
+
+	switch(head->t){
+		case 'i':
+			minnum = (double)head->i;
+			break;
+		case 'f':
+			minnum = head->f;
+			break;
+		default:
+			printf("\n\nThe object passed as an argument to max, is not a real number\n\n");
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				if(minnum < head->i){
+					minnum = (double)head->i;
+					minNode = head;
+				}
+				break;
+			case 'f':
+				if(minnum < head->f){
+					minnum = head->f;
+					minNode = head;
+				}
+				break;
+			default:
+				printf("\n\nThe object passed as an argument to max, is not a real number\n\n");
+				exit(0);
+		}
+		head = head->next;
+	}
+
+	return copyNode(minNode);
 }
