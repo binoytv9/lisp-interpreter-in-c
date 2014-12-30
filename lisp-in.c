@@ -10,11 +10,7 @@ struct node{
 	char *s;		/* to store symbol					t = 's'		*/
 	double f;		/* to store floating value				t = 'f'		*/
 	struct node *head;	/* to store the address of first element of a list	t = 'l'		*/
-
-	char v;			/* to store which type of function pointer		t = 'F'		*/
-	int (*fp1) (int);		// v = '1'
-	double (*fp2) (double);		// v = '2'
-	double (*fp3) (double,double);	// v = '3'
+	struct node *(*fptr) (struct node *); /* to store address of function		t = 'F'		*/
 
 	char t;			// to specify whether the node has an integer or a float or a symbol or a function pointer
 	struct node *next;	// to store the address of next node
@@ -96,14 +92,41 @@ struct node *div(struct node *head)
 	double resultf = 1;
 	struct node *new = NULL;
 
-	if(length(head) > 1)
-		
+	while(current != NULL){
+		l++;
+		if(current->t == 'f')
+			flagf = 1;
+		current = current->next;
+	}
+
+	if(l > 1){
+		switch(head->t){
+			case 'i':
+				if(flagf)
+					resultf = (double)head->i;
+				else
+					resulti = head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf = head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
 
 
 	while(head != NULL){
 		switch(head->t){
 			case 'i':
-				resulti /= head->i;
+				if(flagf)
+					resultf /= (double)head->i;
+				else
+					resulti /= head->i;
 				flagi = 1;
 				break;
 			case 'f':
@@ -561,17 +584,7 @@ struct node *eval(struct node *x)
 			current = current->next;
 		}
 
-		switch(proc->v){
-			case '1':
-				return (proc->fp1)(head);
-				break;
-			case '2':
-				return (proc->fp2)(head);
-				break;
-			case '3':
-				return (proc->fp3)(head);
-				break;
-		}
+		return (proc->fptr)(head);
 	}
 		
 
@@ -596,18 +609,7 @@ struct node *copyNode(struct node *old)
 			new->head = old->head;
 			break;
 		case 'F':
-			new->v = old->v;
-			switch(new->v){
-				case '1':
-					new->fp1 = old->fp1;
-					break;
-				case '2':
-					new->fp2 = old->fp2;
-					break;
-				case '3':
-					new->fp3 = old->fp3;
-					break;
-			}
+			new->fptr = old->fptr;
 			break;
 	}
 	new->next = NULL;
