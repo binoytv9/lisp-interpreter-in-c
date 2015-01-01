@@ -18,32 +18,18 @@ struct node{
 	struct node *next;	// to store the address of next node
 };
 
-struct number{
-	int flag;
-	int inum;
-	double fnum;
-};
-
-struct list{
-	char *w;
-	struct list *lnext;
-};
-
 void checkProgram(char *p);
-char *pop(struct list **href);
+struct node *pop(struct node **href);
 struct node *newNode(char *w);
-struct list *lnewNode(char *w);
-struct list *tokenize(char *p);
+struct node *tokenize(char *p);
+struct node *isNumber(char *w);
 void print(struct node *current);
-struct number *isNumber(char *w);
 int length(struct node *current);
 struct node *parse(char *program);
-void printList(struct list *current);
 void standard_env(struct node *env[]);
 struct node *copyNode(struct node *old);
-struct list *appendList(struct list *h, char *w);
 void appendNode(struct node **h, struct node *w);
-struct node *read_from_list(struct list **tokens);
+struct node *read_from_list(struct node **tokens);
 struct node *eval(struct node *x, struct node *env[]);
 struct node *updateEnv(struct node * (*fptr) (struct node *), char *s);
 
@@ -66,13 +52,13 @@ struct node *sqroot(struct node *head);
 struct node *begin(struct node *current);
 struct node *cons(struct node *x, struct node *y);
 
-int DEBUG = 0;
+int DEBUG = 1;
 
 main()
 {
 	struct node *env[HASHMAX];
 	struct node *head = NULL;
-//	char program[MAX] = "(sqrt 9)";	
+	//char program[MAX] = "(define r 110)";	
 	char program[MAX] = "(begin (define r 10) (* pi (* r r)))";
 
 	head = parse(program);
@@ -83,28 +69,28 @@ main()
 		print(head);
 		printf("\n\n");
 	}
-
 	standard_env(env);
 
 	print(eval(head,env));
 	printf("\n\n");
+
 }
 
 struct node *parse(char *program)
 {
-	struct list *lhead = NULL;
+	struct node *head = NULL;
 
 	checkProgram(program);	// checking syntax of the program
-	lhead = tokenize(program);
+	head = tokenize(program);
 
-	if(DEBUG){
+/*	if(DEBUG){
 		printf("\nInside parse: output of tokenize fn");
 		printf("\n");
-		printList(lhead);
+		print(head);
 		printf("\n\n");
 	}
-
-	return read_from_list(&lhead);
+*/
+	return read_from_list(&head);
 }
 	
 void standard_env(struct node *env[])
@@ -156,12 +142,17 @@ int hash(char *w)
 {
 	int i = 0;
 	int h = 0;
+	char *s = w;
 
 	while(*w){
 		h = h + (*w) * pow(10,i);
 		w++;
 		i++;
 	}
+
+//	if(DEBUG)
+//		printf("%s\t%d\n",s,h%HASHMAX);
+
 	return h%HASHMAX;
 }
 
@@ -211,7 +202,7 @@ struct node *eval(struct node *x, struct node *env[])
 		char *var = x->head->next->s;
 		struct node *exp = copyNode(x->head->next->next);
 		env[hash(var)] = eval(exp, env);
-		return;
+		return NULL;
 	}
 
 	else{						// (proc arg...)
@@ -227,8 +218,6 @@ struct node *eval(struct node *x, struct node *env[])
 
 		return (proc->fptr)(head);
 	}
-		
-
 }
 
 struct node *copyNode(struct node *old)
@@ -281,86 +270,59 @@ void checkProgram(char *p)
 
 }
 
-struct list *tokenize(char *p)
+struct node *tokenize(char *p)
 {
 	char word[100],*w;
-	struct list *head = NULL;
+	struct node *head = NULL;
 
 	while(*p){
 		w = word;
-		if(isspace(*p))
+		while(isspace(*p))
 			++p;
-		else if(!isalnum(*p)){
+		if(*p == '(' || *p == ')'){
 			*w++ = *p++;
 			*w = '\0';
-			head = appendList(head,word);
+			appendNode(&head,newNode(word));
 		}
 		else{
-			while(isalnum(*p))
+			while(!isspace(*p) && *p != '(' && *p != ')')
 				*w++ = *p++;
 			*w = '\0';
-			head = appendList(head,word);
+			appendNode(&head,newNode(word));
 		}
 	}
 	return head;
 }
 
-struct list *appendList(struct list *h, char *w)
+struct node *read_from_list(struct node **tokens)
 {
-	
-	struct list *current = h;
-
-	if(h == NULL)
-		return lnewNode(w);
-
-	while(current->lnext != NULL)
-		current = current->lnext;
-	current->lnext = lnewNode(w);
-
-	return h;
-}
-
-struct list *lnewNode(char *w)
-{
-	struct list *new = (struct list *)malloc(sizeof(struct list));
-
-	new->w = strdup(w);
-	new->lnext = NULL;
-
-	return new;
-}
-
-struct node *read_from_list(struct list **tokens)
-{
-	char *token;
-	struct node *L = NULL;
+	struct node *token;
 
 	token = pop(tokens);
-	if(strcmp(token,"(") == 0){
-		L = newNode(token);
+	if(token->t == 's' && strcmp(token->s,"(") == 0){
+		struct node *L = (struct node *)malloc(sizeof(struct node));;
+		L->t = 'l';
+		L->head = NULL;
+		L->next = NULL;
 
-		while(strcmp((*tokens)->w,")") != 0)
+		while((*tokens)->t != 's' || strcmp((*tokens)->s,")") != 0)
 			appendNode(&(L->head),read_from_list(tokens));
 
 		pop(tokens); // pop off ')'
 		return L;
 	}
 	else
-		return newNode(token);
-	
-		
+		return token;
 }
 
-char *pop(struct list **href)
+struct node *pop(struct node **href)
 {
-	char *w = (*href)->w;
-	struct list *tmp = *href;
-	*href = (*href)->lnext;
-	free(tmp);
+	struct node *tmp = *href;
+	*href = (*href)->next;
+	tmp->next = NULL;
 
-	return w;
+	return tmp;
 }
-
 
 void appendNode(struct node **h, struct node *w)
 {
@@ -378,59 +340,49 @@ void appendNode(struct node **h, struct node *w)
 
 struct node *newNode(char *w)
 {
-	struct node *h = (struct node*)malloc(sizeof(struct node));
-	struct number *num = NULL;
+	struct node *h = NULL;
 
-	if(num = isNumber(w)){
-		if(num->flag == 1){
-			h->i = num->inum;
-			h->t = 'i';
-		}
-		else{
-			h->f = num->fnum;
-			h->t = 'f';
-		}
-	}
-	else if(strcmp(w,"(") == 0){
-		h->t = 'l';
-		h->head = NULL;
+	if(h = isNumber(w)){
+		h->next = NULL;
+		return h;
 	}
 	else{
+		h = (struct node*)malloc(sizeof(struct node));
 		h->s = strdup(w);
 		h->t = 's';
+		h->next = NULL;
+		return h;
 	}
-	h->next = NULL;
-
-	return h;
 }
 
-struct number *isNumber(char *w)
+struct node *isNumber(char *w)
 {
 	int i = 0;
 	int sum = 0;
 	int fra = 0;
-	struct number *new = NULL;
+	struct node *new = NULL;
 
 	while(isdigit(*w)){
 		sum = sum * 10 + (*w - '0');
 		++w;
 	}
 	if(*w == '\0'){	// integer
-		new = (struct number *)malloc(sizeof(struct number));
-		new->inum = sum;
-		new->flag = 1;
+		new = (struct node *)malloc(sizeof(struct node));
+		new->i = sum;
+		new->t = 'i';
 		return new;
 	}
 	else if(*w == '.'){
+		++w;
 		while(isdigit(*w)){
 			fra = fra * 10.0 + (*w - '0');
 			++w;
 			++i;
 		}
 		if(*w == '\0'){	// float
-			new = (struct number *)malloc(sizeof(struct number));
-			new->fnum = (double)sum + fra/pow(10,i);
-			new->flag = 2;
+			new = (struct node *)malloc(sizeof(struct node));
+			new->f = (double)sum + fra/pow(10,i);
+			new->t = 'f';
 			return new;
 		}
 	}
@@ -439,28 +391,19 @@ struct number *isNumber(char *w)
 		
 }
 
-void printList(struct list *current)
-{
-	while(current != NULL){
-		printf(" %s",current->w);
-		current = current->lnext;
-	}
-}
-
-
 void print(struct node *current)
 {
 	if(current == NULL)
 		return;
 	switch(current->t){
 		case 'i':
-			printf(" %d",current->i);
+			printf(" %di",current->i);
 			break;
 		case 'f':
-			printf(" %f",current->f);
+			printf(" %ff",current->f);
 			break;
 		case 's':
-			printf(" %s",current->s);
+			printf(" %ss",current->s);
 			break;
 		case 'l':
 			printf(" (");
@@ -613,6 +556,22 @@ struct node *sub(struct node *head)
 	double resultf = 0;
 	struct node *new = NULL;
 
+	if(length(head) > 1){
+		switch(head->t){
+			case 'i':
+				resulti = head->i;
+				flagi = 1;
+				break;
+			case 'f':
+				resultf = head->f;
+				flagf = 1;
+				break;
+			case 's':
+				printf("The object \"%s\", passed as argument to / is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		head = head->next;
+	}
 	while(head != NULL){
 		switch(head->t){
 			case 'i':
@@ -893,7 +852,7 @@ struct node *sqroot(struct node *head)
 	struct node *new = NULL;
 
 	if(head->next != NULL){
-		printf("sqrt has been called with %d arguments; it requires exactly 1 argument.",length(head));
+		printf("sqrt has been called with %d arguments; it requires exactly 1 argument",length(head));
 		exit(0);
 	}
 
