@@ -14,26 +14,34 @@ struct node{
 	double f;		/* to store floating value				t = 'f'		*/
 	struct node *head;	/* to store the address of first element of a list	t = 'l'		*/
 	struct node *(*fptr) (struct node *); /* to store address of function		t = 'F'		*/
+	struct node **e; 	/* to store address of current Environmenr		t = 'e'		*/
+	struct node *outerEnv; /* to store address of outer Environmenr		t = 'e'		*/
 
-	char t;			// to specify whether the node has an integer or a float or a symbol or a function pointer
+	char t;			// to specify whether the node has an int or a float or a symbol or a function pointer or an Environment
 	struct node *next;	// to store the address of next node
 };
 
+void repl(void);
 void checkProgram(char *p);
 struct node *newNode(char *w);
 struct node *tokenize(char *p);
 struct node *isNumber(char *w);
+struct node *standard_env(void);
 void print(struct node *current);
 int length(struct node *current);
 struct node *parse(char *program);
 struct node *pop(struct node **href);
-void standard_env(struct node *env[]);
 struct node *copyNode(struct node *old);
+struct node *findEnv(char *w, struct node *n);
 void appendNode(struct node **h, struct node *w);
 struct node *read_from_list(struct node **tokens);
-struct node *eval(struct node *x, struct node *env[]);
+struct node *eval(struct node *x, struct node *env);
 struct node *updateEnv(struct node *(*fptr) (struct node *), char *s);
 
+struct node *lt(struct node *head);
+struct node *gt(struct node *head);
+struct node *le(struct node *head);
+struct node *ge(struct node *head);
 struct node *min(struct node *head);
 struct node *max(struct node *head);
 struct node *len(struct node *head);
@@ -53,20 +61,19 @@ struct node *absval(struct node *head);
 struct node *sqroot(struct node *head);
 struct node *begin(struct node *current);
 
-int DEBUG = 1;
+struct node *env[HASHMAX];
 
 main()
 {
-	struct node *env[HASHMAX];
+/*	struct node *env[HASHMAX];
 	struct node *head = NULL;
-//	char program[MAXINPUT] = "(* (+ 1 2) (- 5. 13))";	
-//	char program[MAXINPUT] = "(begin (define r 10) (* pi (* r r)))";
-	char program[MAXINPUT] = "(+ pi pi)";
-//	char program[MAXINPUT] = "(* pi (* r 10))";
+	//char program[MAXINPUT] = "(begin (define r 10) (* pi (* r r)))";
+	//char program[MAXINPUT] = "(begin (define r 10) (* pi (* r (sqrt r))))";
+	char program[MAXINPUT] = "hi";
 
 	head = parse(program);
 
-	if(DEBUG){
+	if(1){
 		printf("\nInside main: output of parse fn");
 		printf("\n");
 		print(head);
@@ -75,7 +82,29 @@ main()
 	standard_env(env);
 	print(eval(head,env));
 	printf("\n\n");
+*/
+	repl(); // A prompt-read-eval-print loop
 
+}
+
+void repl(void)
+{
+	char program[MAXINPUT];
+	struct node *global_env;
+	struct node *result = NULL;
+
+	global_env = standard_env();
+	while(1){
+		printf("lisp.in.c]=>");
+		fgets(program,HASHMAX,stdin);	//printf("\n[%s]\n",program);
+		result = eval(parse(program),global_env);
+		if(result){
+			print(result);
+			printf("\n");
+		}
+		else
+			printf("%p\n",result);
+	}
 }
 
 struct node *parse(char *program)
@@ -85,167 +114,14 @@ struct node *parse(char *program)
 	checkProgram(program);	// checking syntax of the program
 	head = tokenize(program);
 
-/*	if(DEBUG){
+	if(0){
 		printf("\nInside parse: output of tokenize fn");
 		printf("\n");
 		print(head);
 		printf("\n\n");
 	}
-*/
+
 	return read_from_list(&head);
-}
-	
-void standard_env(struct node *env[])
-{
-	env[hash("+")] = updateEnv(add,"+");
-	env[hash("-")] = updateEnv(sub,"-");
-	env[hash("*")] = updateEnv(mul,"*");
-	env[hash("/")] = updateEnv(div_,"/");
-
-/*
-	env[hash(">")] = updateEnv(gt,">");
-	env[hash("<")] = updateEnv(lt,"<");
-	env[hash(">=")] = updateEnv(ge,">=");
-	env[hash("<=")] = updateEnv(le,"<=");
-*/
-
-	env[hash("sqrt")] = updateEnv(sqroot,"sqrt");
-	env[hash("abs")] = updateEnv(absval,"abs");
-	env[hash("pow")] = updateEnv(power,"pow");
-	env[hash("exp")] = updateEnv(expt,"exp");
-	env[hash("cos")] = updateEnv(cosine,"cos");
-	env[hash("sin")] = updateEnv(sine,"sin");
-	env[hash("log")] = updateEnv(logBe,"log");
-
-	env[hash("begin")] = updateEnv(begin,"begin");
-	env[hash("min")] = updateEnv(min,"min");
-	env[hash("max")] = updateEnv(max,"max");
-	env[hash("len")] = updateEnv(len,"len");
-	env[hash("cdr")] = updateEnv(cdr,"cdr");
-	env[hash("car")] = updateEnv(car,"car");
-	env[hash("cons")] = updateEnv(cons,"cons");
-
-	env[hash("pi")] = newNode("3.14");
-//	env[hash("r")] = newNode("10");
-}
-
-struct node *updateEnv(struct node * (*fptr) (struct node *), char *s)
-{
-	struct node *new = (struct node *)malloc(sizeof(struct node));
-
-	new->t = 'F';
-	new->fptr = fptr;
-//	new->s = strdup(s);
-	new->next = NULL;
-
-	return new;
-}
-
-int hash(char *w)
-{
-	int i = 0;
-	int h = 0;
-	char *s = w;
-
-	while(*w){
-		h = h + (*w) * pow(10,i);
-		w++;
-		i++;
-	}
-
-//	if(DEBUG)
-//		printf("%s\t%d\n",s,h%HASHMAX);
-
-	return h%HASHMAX;
-}
-
-struct node *eval(struct node *x, struct node *env[])
-{//printf("\n%c\n",x->t);
-	if(x->t == 's'){				// variable reference
-		char *var = x->s;
-		return env[hash(var)];
-	}
-
-	else if(x->t != 'l')				// constant literal
-		return copyNode(x);
-
-	else if(strcmp(x->head->s,"quote") == 0){	// (quote exp)
-		return x->head->next;
-	}
-	else if(strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
-		struct node *test, *conseq, *alt, *cond;
-
-		test = copyNode(x->head->next);
-		conseq = copyNode(x->head->next->next);
-		alt = copyNode(x->head->next->next->next);
-
-		cond = eval(test,env);
-
-		switch(cond->t){
-			case 'i':
-				if(cond->i)
-					return eval(conseq,env);
-				break;
-			case 'f':
-				if(cond->f)
-					return eval(conseq,env);
-				break;
-			case 's':
-				if(cond->s)
-					return eval(conseq,env);
-				break;
-			default:
-				printf("\n\ncheck here\n\n");
-				break;
-		}
-		return eval(alt, env);
-	}
-
-	else if(strcmp(x->head->s,"define") == 0){	// (define var exp)
-		char *var = x->head->next->s;
-		struct node *exp = copyNode(x->head->next->next);
-		env[hash(var)] = eval(exp, env);
-		return NULL;
-	}
-
-	else{						// (proc arg...)
-		struct node *proc, *current, *head = NULL;
-
-		proc = eval(copyNode(x->head), env);
-		current = x->head->next;
-
-		while(current != NULL){
-			appendNode(&head,eval(copyNode(current),env));printf("\n%c\n",current->t);
-			current = current->next;
-		}//print(head);
-		return (proc->fptr)(head);
-	}
-}
-
-struct node *copyNode(struct node *old)
-{
-	struct node *new = (struct node *)malloc(sizeof(struct node));
-
-	switch(new->t = old->t){
-		case 'i':
-			new->i = old->i;
-			break;
-		case 's':
-			new->s = old->s;
-			break;
-		case 'f':
-			new->f = old->f;
-			break;
-		case 'l':
-			new->head = old->head;
-			break;
-		case 'F':
-			new->fptr = old->fptr;
-			break;
-	}
-	new->next = NULL;
-
-	return new;
 }
 
 void checkProgram(char *p)
@@ -281,13 +157,15 @@ struct node *tokenize(char *p)
 		w = word;
 		while(isspace(*p))
 			++p;
-		if(*p == '(' || *p == ')'){
+		if(*p == '\0')
+			return head;
+		else if(*p == '(' || *p == ')'){
 			*w++ = *p++;
 			*w = '\0';
 			appendNode(&head,newNode(word));
 		}
 		else{
-			while(!isspace(*p) && *p != '(' && *p != ')')
+			while(*p && !isspace(*p) && *p != '(' && *p != ')')
 				*w++ = *p++;
 			*w = '\0';
 			appendNode(&head,newNode(word));
@@ -301,7 +179,7 @@ struct node *read_from_list(struct node **tokens)
 	struct node *token;
 
 	token = pop(tokens);
-	if(token->t == 's' && strcmp(token->s,"(") == 0){
+	if(token != NULL && token->t == 's' && strcmp(token->s,"(") == 0){
 		struct node *L = (struct node *)malloc(sizeof(struct node));;
 		L->t = 'l';
 		L->head = NULL;
@@ -320,6 +198,10 @@ struct node *read_from_list(struct node **tokens)
 struct node *pop(struct node **href)
 {
 	struct node *tmp = *href;
+
+	if(tmp == NULL)
+		return NULL;
+
 	*href = (*href)->next;
 	tmp->next = NULL;
 
@@ -331,7 +213,7 @@ void appendNode(struct node **h, struct node *w)
 	struct node *current = *h;
 
 	if(current == NULL){
-			*h = w;
+		*h = w;
 		return;
 	}
 
@@ -339,6 +221,7 @@ void appendNode(struct node **h, struct node *w)
 		current = current->next;
 	current->next = w;
 }
+
 
 struct node *newNode(char *w)
 {
@@ -398,20 +281,201 @@ struct node *isNumber(char *w)
 	return new; // neither an integer nor a float
 		
 }
+	
+struct node *standard_env(void)
+{
+	env[hash("+")] = updateEnv(add,"+");
+	env[hash("-")] = updateEnv(sub,"-");
+	env[hash("*")] = updateEnv(mul,"*");
+	env[hash("/")] = updateEnv(div_,"/");
+
+
+	env[hash(">")] = updateEnv(gt,">");
+	env[hash("<")] = updateEnv(lt,"<");
+	env[hash(">=")] = updateEnv(ge,">=");
+	env[hash("<=")] = updateEnv(le,"<=");
+
+
+	env[hash("sqrt")] = updateEnv(sqroot,"sqrt");
+	env[hash("abs")] = updateEnv(absval,"abs");
+	env[hash("pow")] = updateEnv(power,"pow");
+	env[hash("exp")] = updateEnv(expt,"exp");
+	env[hash("cos")] = updateEnv(cosine,"cos");
+	env[hash("sin")] = updateEnv(sine,"sin");
+	env[hash("log")] = updateEnv(logBe,"log");
+
+
+	env[hash("begin")] = updateEnv(begin,"begin");
+	env[hash("min")] = updateEnv(min,"min");
+	env[hash("max")] = updateEnv(max,"max");
+	env[hash("len")] = updateEnv(len,"len");
+	env[hash("cdr")] = updateEnv(cdr,"cdr");
+	env[hash("car")] = updateEnv(car,"car");
+	env[hash("cons")] = updateEnv(cons,"cons");
+
+	env[hash("pi")] = newNode("3.14");
+
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'e';
+	new->e = env;
+	new->outerEnv = NULL;
+	new->next = NULL;
+
+	return new;
+}
+
+int hash(char *w)
+{
+	int i = 0;
+	int h = 0;
+	char *s = w;
+
+	while(*w){
+		h = h + (*w) * pow(10,i);
+		w++;
+		i++;
+	}
+
+	if(0)
+		printf("%s\t%d\n",s,h%HASHMAX);
+
+	return h%HASHMAX;
+}
+
+struct node *updateEnv(struct node * (*fptr) (struct node *), char *s)
+{
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	new->t = 'F';
+	new->fptr = fptr;
+//	new->s = strdup(s);
+	new->next = NULL;
+
+	return new;
+}
+
+struct node *eval(struct node *x, struct node *env)
+{
+	if(x == NULL)
+		return NULL;
+
+	if(x->t == 's'){				// variable reference
+		return findEnv(x->s,env);
+	}
+
+	else if(x->t != 'l')				// constant literal
+		return copyNode(x);
+
+	else if(strcmp(x->head->s,"quote") == 0){	// (quote exp)
+		return x->head->next;
+	}
+	else if(strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
+		struct node *test, *conseq, *alt, *cond;
+
+		test = copyNode(x->head->next);
+		conseq = copyNode(x->head->next->next);
+		alt = copyNode(x->head->next->next->next);
+
+		cond = eval(test,env);
+
+		switch(cond->t){
+			case 'i':
+				if(cond->i)
+					return eval(conseq,env);
+				break;
+			case 'f':
+				if(cond->f)
+					return eval(conseq,env);
+				break;
+			case 's':
+				if(cond->s)
+					return eval(conseq,env);
+				break;
+			default:
+				printf("\n\ncheck here\n\n");
+				break;
+		}
+		return eval(alt, env);
+	}
+
+	else if(strcmp(x->head->s,"define") == 0){	// (define var exp)
+		char *var = x->head->next->s;
+		struct node *exp = copyNode(x->head->next->next);
+		env->e[hash(var)] = eval(exp, env);
+		return NULL;
+	}
+
+	else{						// (proc arg...)
+		struct node *proc, *current, *head = NULL;
+
+		proc = eval(copyNode(x->head), env);
+		current = x->head->next;
+		while(current != NULL){
+			appendNode(&head,copyNode(eval(copyNode(current),env)));
+			current = current->next;
+		}
+		return (proc->fptr)(head);
+	}
+}
+
+struct node *findEnv(char *w, struct node *n)
+{
+	struct node *env = NULL;
+
+	if(n == NULL){
+		printf("\n\nUnbound variable: %s\n\n",w);
+		exit(0);
+	}
+
+	if((env = (n->e)[hash(w)]) != NULL)
+		return env;
+
+	return findEnv(w,n->outerEnv);
+}
+
+struct node *copyNode(struct node *old)
+{
+	if(old == NULL)
+		return NULL;
+
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+	switch(new->t = old->t){
+		case 'i':
+			new->i = old->i;
+			break;
+		case 's':
+			new->s = old->s;
+			break;
+		case 'f':
+			new->f = old->f;
+			break;
+		case 'l':
+			new->head = old->head;
+			break;
+		case 'F':
+			new->fptr = old->fptr;
+			break;
+	}
+	new->next = NULL;
+
+	return new;
+}
 
 void print(struct node *current)
 {
 	if(current == NULL)
 		return;
+
 	switch(current->t){
 		case 'i':
-			printf(" %di",current->i);
+			printf(" %d",current->i);
 			break;
 		case 'f':
-			printf(" %ff",current->f);
+			printf(" %f",current->f);
 			break;
 		case 's':
-			printf(" %ss",current->s);
+			printf(" %s",current->s);
 			break;
 		case 'l':
 			printf(" (");
@@ -656,6 +720,222 @@ struct node *add(struct node *head)
 	}
 	new->next = NULL;
 
+	return new;
+}
+
+struct node *lt(struct node *head)
+{
+	int l;
+	double x,y;
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	if((l = length(head)) < 2){
+		new->t = 'i';
+		new->i = 1;
+		new->next = NULL;
+		return new;
+	}
+
+	switch(head->t){
+		case 'i':
+			x = (double)head->i;
+			break;
+		case 'f':
+			x = head->f;
+			break;
+		case 's':
+			printf("\n\nThe object \"%s\", passed as the first argument to < is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				y = (double)head->i;
+				break;
+			case 'f':
+				y = head->f;
+				break;
+			case 's':
+				printf("\n\nThe object \"%s\", passed as argument to < is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		if(x >= y){
+			new->t = 'i';
+			new->i = 0;
+			new->next = NULL;
+			return new;
+		}
+		x = y;
+		head = head->next;
+	}
+
+	new->t = 'i';
+	new->i = 1;
+	new->next = NULL;
+	return new;
+}
+
+struct node *gt(struct node *head)
+{
+	int l;
+	double x,y;
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	if((l = length(head)) < 2){
+		new->t = 'i';
+		new->i = 1;
+		new->next = NULL;
+		return new;
+	}
+
+	switch(head->t){
+		case 'i':
+			x = (double)head->i;
+			break;
+		case 'f':
+			x = head->f;
+			break;
+		case 's':
+			printf("\n\nThe object \"%s\", passed as the first argument to > is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				y = (double)head->i;
+				break;
+			case 'f':
+				y = head->f;
+				break;
+			case 's':
+				printf("\n\nThe object \"%s\", passed as argument to > is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		if(x <= y){
+			new->t = 'i';
+			new->i = 0;
+			new->next = NULL;
+			return new;
+		}
+		x = y;
+		head = head->next;
+	}
+
+	new->t = 'i';
+	new->i = 1;
+	new->next = NULL;
+	return new;
+}
+
+struct node *le(struct node *head)
+{
+	int l;
+	double x,y;
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	if((l = length(head)) < 2){
+		new->t = 'i';
+		new->i = 1;
+		new->next = NULL;
+		return new;
+	}
+
+	switch(head->t){
+		case 'i':
+			x = (double)head->i;
+			break;
+		case 'f':
+			x = head->f;
+			break;
+		case 's':
+			printf("\n\nThe object \"%s\", passed as the first argument to <= is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				y = (double)head->i;
+				break;
+			case 'f':
+				y = head->f;
+				break;
+			case 's':
+				printf("\n\nThe object \"%s\", passed as argument to <= is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		if(x > y){
+			new->t = 'i';
+			new->i = 0;
+			new->next = NULL;
+			return new;
+		}
+		x = y;
+		head = head->next;
+	}
+
+	new->t = 'i';
+	new->i = 1;
+	new->next = NULL;
+	return new;
+}
+
+struct node *ge(struct node *head)
+{
+	int l;
+	double x,y;
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+
+	if((l = length(head)) < 2){
+		new->t = 'i';
+		new->i = 1;
+		new->next = NULL;
+		return new;
+	}
+
+	switch(head->t){
+		case 'i':
+			x = (double)head->i;
+			break;
+		case 'f':
+			x = head->f;
+			break;
+		case 's':
+			printf("\n\nThe object \"%s\", passed as the first argument to >= is not the correct type.\n\n",head->s);
+			exit(0);
+	}
+
+	head = head->next;
+	while(head != NULL){
+		switch(head->t){
+			case 'i':
+				y = (double)head->i;
+				break;
+			case 'f':
+				y = head->f;
+				break;
+			case 's':
+				printf("\n\nThe object \"%s\", passed as argument to >= is not the correct type.\n\n",head->s);
+				exit(0);
+		}
+		if(x < y){
+			new->t = 'i';
+			new->i = 0;
+			new->next = NULL;
+			return new;
+		}
+		x = y;
+		head = head->next;
+	}
+
+	new->t = 'i';
+	new->i = 1;
+	new->next = NULL;
 	return new;
 }
 
