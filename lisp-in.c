@@ -14,14 +14,20 @@ struct node{
 	double f;		/* to store floating value				t = 'f'		*/
 	struct node *head;	/* to store the address of first element of a list	t = 'l'		*/
 	struct node *(*fptr) (struct node *); /* to store address of function		t = 'F'		*/
-	struct node **e; 	/* to store address of current Environmenr		t = 'e'		*/
-	struct node *outerEnv; /* to store address of outer Environmenr		t = 'e'		*/
+
+	struct node **currentEnv;/* to store address of current Environment		t = 'e'		*/
+	struct node *outerEnv;	/* to store address of outer Environment Node		t = 'e'		*/
+
+	struct node *parms;
+	struct node *body;
+	struct node *env;
 
 	char t;			// to specify whether the node has an int or a float or a symbol or a function pointer or an Environment
 	struct node *next;	// to store the address of next node
 };
 
 void repl(void);
+long hash(char *w);
 void checkProgram(char *p);
 struct node *newNode(char *w);
 struct node *tokenize(char *p);
@@ -32,11 +38,12 @@ int length(struct node *current);
 struct node *parse(char *program);
 struct node *pop(struct node **href);
 struct node *copyNode(struct node *old);
-struct node *findEnv(char *w, struct node *n);
 void appendNode(struct node **h, struct node *w);
 struct node *read_from_list(struct node **tokens);
-struct node *eval(struct node *x, struct node *env);
+struct node **findEnv(char *w, struct node *envNode);
+struct node *eval(struct node *x, struct node *envNode);
 struct node *updateEnv(struct node *(*fptr) (struct node *), char *s);
+struct node *Env(struct node *parms, struct node *args, struct node *outerEnv);
 
 struct node *lt(struct node *head);
 struct node *gt(struct node *head);
@@ -60,8 +67,6 @@ struct node *cosine(struct node *head);
 struct node *absval(struct node *head);
 struct node *sqroot(struct node *head);
 struct node *begin(struct node *current);
-
-struct node *env[HASHMAX];
 
 main()
 {
@@ -284,6 +289,9 @@ struct node *isNumber(char *w)
 	
 struct node *standard_env(void)
 {
+	struct node *new = (struct node *)malloc(sizeof(struct node));
+	struct node **env = (struct node **)calloc(HASHMAX,sizeof(struct node *));
+
 	env[hash("+")] = updateEnv(add,"+");
 	env[hash("-")] = updateEnv(sub,"-");
 	env[hash("*")] = updateEnv(mul,"*");
@@ -315,20 +323,19 @@ struct node *standard_env(void)
 
 	env[hash("pi")] = newNode("3.14");
 
-	struct node *new = (struct node *)malloc(sizeof(struct node));
 
 	new->t = 'e';
-	new->e = env;
+	new->currentEnv = env;
 	new->outerEnv = NULL;
 	new->next = NULL;
 
 	return new;
 }
 
-int hash(char *w)
+long hash(char *w)
 {
 	int i = 0;
-	int h = 0;
+	long h = 0;
 	char *s = w;
 
 	while(*w){
@@ -338,7 +345,7 @@ int hash(char *w)
 	}
 
 	if(0)
-		printf("%s\t%d\n",s,h%HASHMAX);
+		printf("%s\t%ld\n",s,h%HASHMAX);
 
 	return h%HASHMAX;
 }
@@ -355,83 +362,124 @@ struct node *updateEnv(struct node * (*fptr) (struct node *), char *s)
 	return new;
 }
 
-struct node *eval(struct node *x, struct node *env)
+struct node *eval(struct node *x, struct node *envNode)
 {
 	if(x == NULL)
 		return NULL;
 
 	if(x->t == 's'){				// variable reference
-		return findEnv(x->s,env);
+		char *var = x->s;
+		return findEnv(var,envNode)[hash(var)];
 	}
 
 	else if(x->t != 'l')				// constant literal
 		return copyNode(x);
 
-	else if(strcmp(x->head->s,"quote") == 0){	// (quote exp)
+	else if(x->head->t == 's' && strcmp(x->head->s,"quote") == 0){	// (quote exp)
 		return x->head->next;
 	}
-	else if(strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
+	else if(x->head->t == 's' && strcmp(x->head->s,"if") == 0){		// (if test conseq alt)
 		struct node *test, *conseq, *alt, *cond;
 
 		test = copyNode(x->head->next);
 		conseq = copyNode(x->head->next->next);
-		alt = copyNode(x->head->next->next->next);
+		alt = x->head->next->next->next;
 
-		cond = eval(test,env);
+		cond = eval(test,envNode);
 
 		switch(cond->t){
 			case 'i':
 				if(cond->i)
-					return eval(conseq,env);
+					return eval(conseq,envNode);
 				break;
 			case 'f':
 				if(cond->f)
-					return eval(conseq,env);
+					return eval(conseq,envNode);
 				break;
 			case 's':
 				if(cond->s)
-					return eval(conseq,env);
+					return eval(conseq,envNode);
 				break;
 			default:
 				printf("\n\ncheck here\n\n");
 				break;
 		}
-		return eval(alt, env);
+		return eval(alt, envNode);
 	}
 
-	else if(strcmp(x->head->s,"define") == 0){	// (define var exp)
+	else if(x->head->t == 's' && strcmp(x->head->s,"define") == 0){	// (define var exp)
 		char *var = x->head->next->s;
-		struct node *exp = copyNode(x->head->next->next);
-		env->e[hash(var)] = eval(exp, env);
+		struct node *exp = x->head->next->next;
+		envNode->currentEnv[hash(var)] = eval(exp, envNode);
 		return NULL;
+	}
+
+	else if(x->head->t == 's' && strcmp(x->head->s,"set!") == 0){	// (set! var exp)
+		char *var = x->head->next->s;
+		struct node *exp = x->head->next->next;
+		findEnv(var,envNode)[hash(var)] = eval(exp, envNode);
+		return NULL;
+	}
+
+	else if(x->head->t == 's' && strcmp(x->head->s,"lambda") == 0){	// (lambda (var...) body)
+		struct node *new = (struct node *)malloc(sizeof(struct node));
+
+		new->t = 'p';
+		new->parms = x->head->next->head;
+		new->body = x->head->next->next;
+		new->env = envNode;
+		new->next = NULL;
+		return new;
 	}
 
 	else{						// (proc arg...)
 		struct node *proc, *current, *head = NULL;
 
-		proc = eval(copyNode(x->head), env);
+		proc = eval(copyNode(x->head), envNode);
 		current = x->head->next;
 		while(current != NULL){
-			appendNode(&head,copyNode(eval(copyNode(current),env)));
+			appendNode(&head,copyNode(eval(copyNode(current),envNode)));
 			current = current->next;
 		}
-		return (proc->fptr)(head);
+
+		if(proc->t == 'p')
+			return eval(proc->body,Env(proc->parms,head,proc->env));
+		else
+			return (proc->fptr)(head);
 	}
 }
 
-struct node *findEnv(char *w, struct node *n)
+struct node *Env(struct node *parms, struct node *args, struct node *outerEnv)
+{
+	struct node *newEnvNode = (struct node *)malloc(sizeof(struct node));
+
+	newEnvNode->t = 'e';
+	newEnvNode->currentEnv = (struct node **)calloc(HASHMAX,sizeof(struct node *));
+	newEnvNode->outerEnv = outerEnv;
+	newEnvNode->next = NULL;
+
+	while(parms != NULL && args != NULL){
+		newEnvNode->currentEnv[hash(parms->s)] = copyNode(args);
+		parms = parms->next;
+		args = args->next;
+	}
+
+	return newEnvNode;
+}
+
+struct node **findEnv(char *w, struct node *envNode)
 {
 	struct node *env = NULL;
 
-	if(n == NULL){
-		printf("\n\nUnbound variable: %s\n\n",w);
+	if(envNode == NULL){
+		printf("Unbound variable: %s\n",w);
 		exit(0);
 	}
 
-	if((env = (n->e)[hash(w)]) != NULL)
-		return env;
+	if((env = envNode->currentEnv[hash(w)]) != NULL)
+		return envNode->currentEnv;
 
-	return findEnv(w,n->outerEnv);
+	return findEnv(w,envNode->outerEnv);
 }
 
 struct node *copyNode(struct node *old)
